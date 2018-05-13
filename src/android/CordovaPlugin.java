@@ -20,13 +20,16 @@ public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
             for (Method method : this.getClass().getDeclaredMethods()) {
                 CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
                 if (cordovaMethod != null) {
+                    String methodAction = cordovaMethod.action();
+                    if (methodAction.isEmpty()) {
+                        methodAction = method.getName();
+                    }
+                    methodsMap.put(methodAction, method);
+
                     try {
+                        // improve performance for future invokations:
+                        // suppress Java language access checks
                         method.setAccessible(true);
-                        if (cordovaMethod.action().isEmpty()) {
-                            methodsMap.put(method.getName(), method);
-                        } else {
-                            methodsMap.put(cordovaMethod.action(), method);
-                        }
                     } catch (SecurityException e) {
                         e.printStackTrace();
                     }
@@ -38,10 +41,10 @@ public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
         if (method != null) {
             try {
                 method.invoke(this, args, callbackContext);
+                return true;
             } catch (ReflectiveOperationException e) {
                 e.printStackTrace();
             }
-            return true;
         }
 
         return false;
