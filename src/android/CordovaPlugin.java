@@ -1,5 +1,6 @@
 package by.chemerisuk.cordova.support;
 
+import org.apache.cordova.CordovaArgs;
 import org.apache.cordova.CallbackContext;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -13,7 +14,7 @@ public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
     private Map<String, Method> methodsMap;
 
     @Override
-    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
+    public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         if (methodsMap == null) {
             methodsMap = new HashMap<String, Method>();
             for (Method method : this.getClass().getDeclaredMethods()) {
