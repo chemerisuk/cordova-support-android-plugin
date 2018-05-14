@@ -2,7 +2,7 @@
 More convenient base CordovaPlugin class
 
 ## Receipts
-Let's look at the simple plugin below
+Let's look at a simple plugin
 
 ```java
 import org.apache.cordova.CordovaPlugin;
@@ -102,6 +102,23 @@ public class MyPlugin extends ReflectiveCordovaPlugin {
         // method2 implementation
     }
     ...
+}
+```
+
+## ProGuard notes
+If you obfuscate your app with ProGuard then `proguard-rules.pro` usually contains rules:
+
+```
+-keep class org.apache.cordova.* { *; }
+-keep class org.apache.cordova.engine.* { *; }
+-keep public class * extends org.apache.cordova.CordovaPlugin
+```
+
+Because `ReflectiveCordovaPlugin` uses method names to invoke appropriate action, you should keep any methods marked with `@CordovaMethod`:
+
+```
+-keepclassmembers class ** {
+  @by.chemerisuk.cordova.support.CordovaMethod *;
 }
 ```
 
