@@ -1,17 +1,20 @@
 package by.chemerisuk.cordova.support;
 
-import org.apache.cordova.CordovaArgs;
+import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CallbackContext;
+import org.apache.cordova.LOG;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.HashMap;
 
 
-public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
+public class ReflectiveCordovaPlugin extends CordovaPlugin {
+    private static String TAG = "ReflectiveCordovaPlugin";
     private Map<String, CordovaMethodCommand> methodsMap;
 
     @Override
@@ -53,6 +56,7 @@ public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
         private final Method method;
         private final boolean async;
         private Object[] methodArgs;
+        private CallbackContext callback;
 
         public CordovaMethodCommand(CordovaPlugin plugin, Method method, boolean async) {
             this.plugin = plugin;
@@ -63,6 +67,7 @@ public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
         public void init(JSONArray args, CallbackContext callbackContext) throws JSONException {
             Class<?>[] argTypes = method.getParameterTypes();
             this.methodArgs = new Object[argTypes.length];
+            this.callback = callbackContext;
 
             for (int i = 0; i < argTypes.length; ++i) {
                 Class<?> argType = argTypes[i];
@@ -82,10 +87,15 @@ public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
         public void run() {
             try {
                 this.method.invoke(this.plugin, this.methodArgs);
-            } catch (ReflectiveOperationException e) {
-                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                LOG.e(TAG, "Reflection exception from plugin", e.getTargetException());
+                this.callback.error(e.getTargetException().getMessage());
+            } catch (Exception e) {
+                LOG.e(TAG, "Uncaught exception from plugin", e);
+                this.callback.error(e.getMessage());
             } finally {
                 this.methodArgs = null;
+                this.callback = null;
             }
         }
 
