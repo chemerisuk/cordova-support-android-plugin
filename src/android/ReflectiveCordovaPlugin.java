@@ -55,6 +55,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         private final CordovaPlugin plugin;
         private final Method method;
         private final boolean async;
+        private final Class<?>[] argTypes;
         private Object[] methodArgs;
         private CallbackContext callback;
 
@@ -62,15 +63,15 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             this.plugin = plugin;
             this.method = method;
             this.async = async;
+            this.argTypes = method.getParameterTypes();
         }
 
         public void init(JSONArray args, CallbackContext callbackContext) throws JSONException {
-            Class<?>[] argTypes = method.getParameterTypes();
-            this.methodArgs = new Object[argTypes.length];
+            this.methodArgs = new Object[this.argTypes.length];
             this.callback = callbackContext;
 
-            for (int i = 0; i < argTypes.length; ++i) {
-                Class<?> argType = argTypes[i];
+            for (int i = 0; i < this.argTypes.length; ++i) {
+                Class<?> argType = this.argTypes[i];
                 if (CallbackContext.class.equals(argType)) {
                     this.methodArgs[i] = callbackContext;
                 } else if (JSONArray.class.equals(argType)) {
