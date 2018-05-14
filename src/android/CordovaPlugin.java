@@ -27,14 +27,9 @@ public class CordovaPlugin extends org.apache.cordova.CordovaPlugin {
                     }
                     methodsMap.put(methodAction, new CordovaMethodCommand(
                         this, method, cordovaMethod.async()));
-
-                    try {
-                        // suppress Java language access checks
-                        // to improve performance of future calls
-                        method.setAccessible(true);
-                    } catch (SecurityException e) {
-                        e.printStackTrace();
-                    }
+                    // suppress Java language access checks
+                    // to improve performance of future calls
+                    method.setAccessible(true);
                 }
             }
         }
