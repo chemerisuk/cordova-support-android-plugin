@@ -29,7 +29,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                         methodAction = method.getName();
                     }
                     methodsMap.put(methodAction, new CordovaMethodCommand(
-                        this, method, cordovaMethod.async()));
+                        this, method, cordovaMethod));
                     // suppress Java language access checks
                     // to improve performance of future calls
                     method.setAccessible(true);
@@ -40,7 +40,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         CordovaMethodCommand command = methodsMap.get(action);
         if (command != null) {
             command.init(args, callbackContext);
-            if (command.isAsync()) {
+            if (command.async) {
                 cordova.getThreadPool().execute(command);
             } else {
                 command.run();
@@ -55,23 +55,23 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         private final CordovaPlugin plugin;
         private final Method method;
         private final boolean async;
-        private final Class<?>[] argTypes;
+        private final Class[] argTypes;
         private Object[] methodArgs;
         private CallbackContext callback;
 
-        public CordovaMethodCommand(CordovaPlugin plugin, Method method, boolean async) {
+        public CordovaMethodCommand(CordovaPlugin plugin, Method method, CordovaMethod cordovaMethod) {
             this.plugin = plugin;
             this.method = method;
-            this.async = async;
+            this.async = cordovaMethod.async();
             this.argTypes = method.getParameterTypes();
         }
 
         public void init(JSONArray args, CallbackContext callbackContext) throws JSONException {
-            this.methodArgs = new Object[this.argTypes.length];
             this.callback = callbackContext;
+            this.methodArgs = new Object[this.argTypes.length];
 
             for (int i = 0; i < this.argTypes.length; ++i) {
-                Class<?> argType = this.argTypes[i];
+                Class argType = this.argTypes[i];
                 if (CallbackContext.class.equals(argType)) {
                     this.methodArgs[i] = callbackContext;
                 } else if (JSONArray.class.equals(argType)) {
@@ -89,7 +89,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             try {
                 this.method.invoke(this.plugin, this.methodArgs);
             } catch (InvocationTargetException e) {
-                LOG.e(TAG, "Reflection exception from plugin", e.getTargetException());
+                LOG.e(TAG, "Invocation exception from plugin", e.getTargetException());
                 this.callback.error(e.getTargetException().getMessage());
             } catch (Exception e) {
                 LOG.e(TAG, "Uncaught exception from plugin", e);
@@ -98,10 +98,6 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                 this.methodArgs = null;
                 this.callback = null;
             }
-        }
-
-        public boolean isAsync() {
-            return this.async;
         }
     }
 }

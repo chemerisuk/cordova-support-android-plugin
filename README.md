@@ -111,7 +111,7 @@ public class MyPlugin extends CordovaPlugin {
     @Override
     public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         if (METHOD_1.equals(action)) {
-            method1(args.getBoolean(0), callbackContext);s
+            method1(args.getBoolean(0), callbackContext);
         } else {
             return false;
         }
