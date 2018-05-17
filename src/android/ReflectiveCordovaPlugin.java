@@ -74,10 +74,6 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                 Class argType = this.argTypes[i];
                 if (CallbackContext.class.equals(argType)) {
                     this.methodArgs[i] = callbackContext;
-                } else if (JSONArray.class.equals(argType)) {
-                    this.methodArgs[i] = args.optJSONArray(i);
-                } else if (JSONObject.class.equals(argType)) {
-                    this.methodArgs[i] = args.optJSONObject(i);
                 } else {
                     this.methodArgs[i] = args.get(i);
                 }
