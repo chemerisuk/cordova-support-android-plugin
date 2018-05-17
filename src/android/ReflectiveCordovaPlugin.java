@@ -21,18 +21,24 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if (methodsMap == null) {
             methodsMap = new HashMap<String, CordovaMethodCommand>();
+
             for (Method method : this.getClass().getDeclaredMethods()) {
                 CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
                 if (cordovaMethod != null) {
-                    String methodAction = cordovaMethod.action();
-                    if (methodAction.isEmpty()) {
-                        methodAction = method.getName();
+                    Class[] paramTypes = method.getParameterTypes();
+                    if (!CallbackContext.class.equals(paramTypes[paramTypes.length - 1])) {
+                        LOG.e(TAG, "Method with @CordovaMethod must have CallbackContext as the last parameter");
+                    } else {
+                        String methodAction = cordovaMethod.action();
+                        if (methodAction.isEmpty()) {
+                            methodAction = method.getName();
+                        }
+                        methodsMap.put(methodAction, new CordovaMethodCommand(
+                            this, method, cordovaMethod));
+                        // suppress Java language access checks
+                        // to improve performance of future calls
+                        method.setAccessible(true);
                     }
-                    methodsMap.put(methodAction, new CordovaMethodCommand(
-                        this, method, cordovaMethod));
-                    // suppress Java language access checks
-                    // to improve performance of future calls
-                    method.setAccessible(true);
                 }
             }
         }
@@ -55,7 +61,6 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         private final CordovaPlugin plugin;
         private final Method method;
         private final boolean async;
-        private final Class[] argTypes;
         private Object[] methodArgs;
         private CallbackContext callback;
 
@@ -63,21 +68,17 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             this.plugin = plugin;
             this.method = method;
             this.async = cordovaMethod.async();
-            this.argTypes = method.getParameterTypes();
         }
 
         public void init(JSONArray args, CallbackContext callbackContext) throws JSONException {
-            this.callback = callbackContext;
-            this.methodArgs = new Object[this.argTypes.length];
-
-            for (int i = 0; i < this.argTypes.length; ++i) {
-                Class argType = this.argTypes[i];
-                if (CallbackContext.class.equals(argType)) {
-                    this.methodArgs[i] = callbackContext;
-                } else {
-                    this.methodArgs[i] = args.get(i);
-                }
+            int len = args.length();
+            this.methodArgs = new Object[len + 1];
+            for (int i = 0; i < len; ++i) {
+                this.methodArgs[i] = args.get(i);
             }
+            // CallbackContext is always the last one
+            this.methodArgs[len] = callbackContext;
+            this.callback = callbackContext;
         }
 
         @Override
