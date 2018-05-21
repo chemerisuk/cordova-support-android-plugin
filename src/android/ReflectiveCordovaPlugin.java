@@ -46,7 +46,9 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         CordovaMethodCommand command = methodsMap.get(action);
         if (command != null) {
             command.init(args, callbackContext);
-            if (command.async) {
+            if (command.ui) {
+                cordova.getActivity().runOnUiThread(command);
+            } else if (command.async) {
                 cordova.getThreadPool().execute(command);
             } else {
                 command.run();
@@ -61,6 +63,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         private final CordovaPlugin plugin;
         private final Method method;
         private final boolean async;
+        private final boolean ui;
         private Object[] methodArgs;
         private CallbackContext callback;
 
@@ -68,6 +71,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             this.plugin = plugin;
             this.method = method;
             this.async = cordovaMethod.async();
+            this.ui = cordovaMethod.ui();
         }
 
         public void init(JSONArray args, CallbackContext callbackContext) throws JSONException {

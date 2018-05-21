@@ -10,4 +10,5 @@ import java.lang.annotation.Target;
 public @interface CordovaMethod {
     public String action() default "";
     public boolean async() default false;
+    public boolean ui() default false;
 }
