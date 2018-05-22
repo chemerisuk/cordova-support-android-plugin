@@ -78,7 +78,11 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             int len = args.length();
             this.methodArgs = new Object[len + 1];
             for (int i = 0; i < len; ++i) {
-                this.methodArgs[i] = args.get(i);
+                Object argValue = args.opt(i);
+                if (JSONObject.NULL.equals(argValue)) {
+                    argValue = null;
+                }
+                this.methodArgs[i] = argValue;
             }
             // CallbackContext is always the last one
             this.methodArgs[len] = callbackContext;
