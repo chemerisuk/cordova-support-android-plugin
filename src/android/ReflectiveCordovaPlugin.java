@@ -94,15 +94,19 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             try {
                 this.method.invoke(this.plugin, this.methodArgs);
             } catch (InvocationTargetException e) {
-                LOG.e(TAG, "Invocation exception from plugin", e.getTargetException());
+                LOG.e(TAG, "Invocation exception at " + getFullMethodName(), e.getTargetException());
                 this.callback.error(e.getTargetException().getMessage());
             } catch (Exception e) {
-                LOG.e(TAG, "Uncaught exception from plugin", e);
+                LOG.e(TAG, "Uncaught exception at " + getFullMethodName(), e);
                 this.callback.error(e.getMessage());
             } finally {
                 this.methodArgs = null;
                 this.callback = null;
             }
+        }
+
+        private String getFullMethodName() {
+            return this.plugin.getClass().getSimpleName() + "#" + this.method.getName();
         }
     }
 }
