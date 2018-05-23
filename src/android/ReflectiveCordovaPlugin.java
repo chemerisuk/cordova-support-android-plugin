@@ -15,12 +15,12 @@ import java.util.HashMap;
 
 public class ReflectiveCordovaPlugin extends CordovaPlugin {
     private static String TAG = "ReflectiveCordovaPlugin";
-    private Map<String, CordovaMethodCommand> methodsMap;
+    private Map<String, CordovaMethodFactory> methodsMap;
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if (methodsMap == null) {
-            methodsMap = new HashMap<String, CordovaMethodCommand>();
+            methodsMap = new HashMap<String, CordovaMethodFactory>();
 
             for (Method method : this.getClass().getDeclaredMethods()) {
                 CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
@@ -33,7 +33,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                         if (methodAction.isEmpty()) {
                             methodAction = method.getName();
                         }
-                        methodsMap.put(methodAction, new CordovaMethodCommand(
+                        methodsMap.put(methodAction, new CordovaMethodFactory(
                             this, method, cordovaMethod));
                         // suppress Java language access checks
                         // to improve performance of future calls
@@ -43,12 +43,12 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             }
         }
 
-        CordovaMethodCommand command = methodsMap.get(action);
-        if (command != null) {
-            command.init(args, callbackContext);
-            if (command.ui) {
+        CordovaMethodFactory factory = methodsMap.get(action);
+        if (factory != null) {
+            Runnable command = factory.create(args, callbackContext);
+            if (factory.ui) {
                 cordova.getActivity().runOnUiThread(command);
-            } else if (command.async) {
+            } else if (factory.async) {
                 cordova.getThreadPool().execute(command);
             } else {
                 command.run();
@@ -59,50 +59,53 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
-    private static class CordovaMethodCommand implements Runnable {
+    private static class CordovaMethodFactory {
         private final CordovaPlugin plugin;
         private final Method method;
         private final boolean async;
         private final boolean ui;
-        private Object[] methodArgs;
-        private CallbackContext callback;
 
-        public CordovaMethodCommand(CordovaPlugin plugin, Method method, CordovaMethod cordovaMethod) {
+        public CordovaMethodFactory(CordovaPlugin plugin, Method method, CordovaMethod cordovaMethod) {
             this.plugin = plugin;
             this.method = method;
             this.async = cordovaMethod.async();
             this.ui = cordovaMethod.ui();
         }
 
-        public void init(JSONArray args, CallbackContext callbackContext) throws JSONException {
+        public Runnable create(JSONArray args, final CallbackContext callbackContext) throws JSONException {
+            final Object[] methodArgs = createMethodArgs(args, callbackContext);
+            // always create a new commend object
+            // to avoid possible thread conflicts
+            return new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        method.invoke(plugin, methodArgs);
+                    } catch (InvocationTargetException e) {
+                        LOG.e(TAG, "Invocation exception at " + getFullMethodName(), e.getTargetException());
+                        callbackContext.error(e.getTargetException().getMessage());
+                    } catch (Exception e) {
+                        LOG.e(TAG, "Uncaught exception at " + getFullMethodName(), e);
+                        callbackContext.error(e.getMessage());
+                    }
+                }
+            };
+        }
+
+        private static Object[] createMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
             int len = args.length();
-            this.methodArgs = new Object[len + 1];
+            Object[] methodArgs = new Object[len + 1];
             for (int i = 0; i < len; ++i) {
                 Object argValue = args.opt(i);
                 if (JSONObject.NULL.equals(argValue)) {
                     argValue = null;
                 }
-                this.methodArgs[i] = argValue;
+                methodArgs[i] = argValue;
             }
             // CallbackContext is always the last one
-            this.methodArgs[len] = callbackContext;
-            this.callback = callbackContext;
-        }
+            methodArgs[len] = callbackContext;
 
-        @Override
-        public void run() {
-            try {
-                this.method.invoke(this.plugin, this.methodArgs);
-            } catch (InvocationTargetException e) {
-                LOG.e(TAG, "Invocation exception at " + getFullMethodName(), e.getTargetException());
-                this.callback.error(e.getTargetException().getMessage());
-            } catch (Exception e) {
-                LOG.e(TAG, "Uncaught exception at " + getFullMethodName(), e);
-                this.callback.error(e.getMessage());
-            } finally {
-                this.methodArgs = null;
-                this.callback = null;
-            }
+            return methodArgs;
         }
 
         private String getFullMethodName() {
