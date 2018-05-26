@@ -20,26 +20,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if (factories == null) {
-            factories = new HashMap<String, ActionCommandFactory>();
-
-            for (Method method : this.getClass().getDeclaredMethods()) {
-                CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
-                if (cordovaMethod != null) {
-                    Class[] paramTypes = method.getParameterTypes();
-                    if (!CallbackContext.class.equals(paramTypes[paramTypes.length - 1])) {
-                        LOG.e(TAG, "Method with @CordovaMethod must have CallbackContext as the last parameter");
-                    } else {
-                        String methodAction = cordovaMethod.action();
-                        if (methodAction.isEmpty()) {
-                            methodAction = method.getName();
-                        }
-                        factories.put(methodAction, new ActionCommandFactory(method, cordovaMethod));
-                        // suppress Java language access checks
-                        // to improve performance of future calls
-                        method.setAccessible(true);
-                    }
-                }
-            }
+            factories = createCommandFactories(this.getClass());
         }
 
         ActionCommandFactory factory = factories.get(action);
@@ -56,6 +37,30 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         }
 
         return false;
+    }
+
+    private static Map<String, ActionCommandFactory> createCommandFactories(Class clazz) {
+        Map<String, ActionCommandFactory> result = new HashMap<String, ActionCommandFactory>();
+        for (Method method : clazz.getDeclaredMethods()) {
+            CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
+            if (cordovaMethod != null) {
+                Class[] paramTypes = method.getParameterTypes();
+                if (!CallbackContext.class.equals(paramTypes[paramTypes.length - 1])) {
+                    LOG.e(TAG, "Method with @CordovaMethod must have CallbackContext as the last parameter");
+                } else {
+                    String methodAction = cordovaMethod.action();
+                    if (methodAction.isEmpty()) {
+                        methodAction = method.getName();
+                    }
+                    result.put(methodAction, new ActionCommandFactory(method, cordovaMethod));
+                    // suppress Java language access checks
+                    // to improve performance of future calls
+                    method.setAccessible(true);
+                }
+            }
+        }
+
+        return result;
     }
 
     private static class ActionCommandFactory {
