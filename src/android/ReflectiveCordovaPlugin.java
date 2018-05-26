@@ -15,12 +15,12 @@ import java.util.HashMap;
 
 public class ReflectiveCordovaPlugin extends CordovaPlugin {
     private static String TAG = "ReflectiveCordovaPlugin";
-    private Map<String, CordovaMethodFactory> methodsMap;
+    private Map<String, ActionCommandFactory> factories;
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
-        if (methodsMap == null) {
-            methodsMap = new HashMap<String, CordovaMethodFactory>();
+        if (factories == null) {
+            factories = new HashMap<String, ActionCommandFactory>();
 
             for (Method method : this.getClass().getDeclaredMethods()) {
                 CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
@@ -33,8 +33,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                         if (methodAction.isEmpty()) {
                             methodAction = method.getName();
                         }
-                        methodsMap.put(methodAction, new CordovaMethodFactory(
-                            this, method, cordovaMethod));
+                        factories.put(methodAction, new ActionCommandFactory(method, cordovaMethod));
                         // suppress Java language access checks
                         // to improve performance of future calls
                         method.setAccessible(true);
@@ -43,9 +42,9 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             }
         }
 
-        CordovaMethodFactory factory = methodsMap.get(action);
+        ActionCommandFactory factory = factories.get(action);
         if (factory != null) {
-            Runnable command = factory.create(args, callbackContext);
+            Runnable command = factory.create(this, args, callbackContext);
             if (factory.ui) {
                 cordova.getActivity().runOnUiThread(command);
             } else if (factory.async) {
@@ -59,22 +58,20 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
-    private static class CordovaMethodFactory {
-        private final CordovaPlugin plugin;
+    private static class ActionCommandFactory {
         private final Method method;
         private final boolean async;
         private final boolean ui;
 
-        public CordovaMethodFactory(CordovaPlugin plugin, Method method, CordovaMethod cordovaMethod) {
-            this.plugin = plugin;
+        public ActionCommandFactory(Method method, CordovaMethod cordovaMethod) {
             this.method = method;
             this.async = cordovaMethod.async();
             this.ui = cordovaMethod.ui();
         }
 
-        public Runnable create(JSONArray args, final CallbackContext callbackContext) throws JSONException {
-            final Object[] methodArgs = createMethodArgs(args, callbackContext);
-            // always create a new commend object
+        public Runnable create(final CordovaPlugin plugin, JSONArray args, final CallbackContext callbackContext) throws JSONException {
+            final Object[] methodArgs = getMethodArgs(args, callbackContext);
+            // always create a new command object
             // to avoid possible thread conflicts
             return new Runnable() {
                 @Override
@@ -92,7 +89,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             };
         }
 
-        private static Object[] createMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
+        private static Object[] getMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
             int len = args.length();
             Object[] methodArgs = new Object[len + 1];
             for (int i = 0; i < len; ++i) {
