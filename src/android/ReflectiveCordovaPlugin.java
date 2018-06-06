@@ -1,5 +1,8 @@
 package by.chemerisuk.cordova.support;
 
+import android.support.annotation.UiThread;
+import android.support.annotation.WorkerThread;
+
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.LOG;
@@ -52,7 +55,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                     if (methodAction.isEmpty()) {
                         methodAction = method.getName();
                     }
-                    result.put(methodAction, new ActionCommandFactory(method, cordovaMethod));
+                    result.put(methodAction, new ActionCommandFactory(method));
                     // suppress Java language access checks
                     // to improve performance of future calls
                     method.setAccessible(true);
@@ -63,15 +66,19 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return result;
     }
 
+    private static String getFullMethodName(CordovaPlugin plugin, Method method) {
+        return plugin.getClass().getSimpleName() + "#" + method.getName();
+    }
+
     private static class ActionCommandFactory {
         private final Method method;
         private final boolean async;
         private final boolean ui;
 
-        public ActionCommandFactory(Method method, CordovaMethod cordovaMethod) {
+        public ActionCommandFactory(Method method) {
             this.method = method;
-            this.async = cordovaMethod.async();
-            this.ui = cordovaMethod.ui();
+            this.async = method.getAnnotation(WorkerThread.class) != null;
+            this.ui = method.getAnnotation(UiThread.class) != null;
         }
 
         public Runnable create(final CordovaPlugin plugin, JSONArray args, final CallbackContext callbackContext) throws JSONException {
@@ -84,10 +91,10 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                     try {
                         method.invoke(plugin, methodArgs);
                     } catch (InvocationTargetException e) {
-                        LOG.e(TAG, "Invocation exception at " + getFullMethodName(), e.getTargetException());
+                        LOG.e(TAG, "Invocation exception at " + getFullMethodName(plugin, method), e.getTargetException());
                         callbackContext.error(e.getTargetException().getMessage());
                     } catch (Exception e) {
-                        LOG.e(TAG, "Uncaught exception at " + getFullMethodName(), e);
+                        LOG.e(TAG, "Uncaught exception at " + getFullMethodName(plugin, method), e);
                         callbackContext.error(e.getMessage());
                     }
                 }
@@ -108,10 +115,6 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             methodArgs[len] = callbackContext;
 
             return methodArgs;
-        }
-
-        private String getFullMethodName() {
-            return this.plugin.getClass().getSimpleName() + "#" + this.method.getName();
         }
     }
 }
