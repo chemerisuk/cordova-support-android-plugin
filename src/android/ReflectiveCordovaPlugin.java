@@ -20,12 +20,13 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if (factories == null) {
-            factories = createCommandFactories(this.getClass());
+            factories = createCommandFactories();
         }
 
         ActionCommandFactory factory = factories.get(action);
         if (factory != null) {
-            Runnable command = factory.create(this, args, callbackContext);
+            Object[] methodArgs = getMethodArgs(args, callbackContext);
+            Runnable command = factory.create(this, methodArgs, callbackContext);
             if (factory.ui) {
                 cordova.getActivity().runOnUiThread(command);
             } else if (factory.async) {
@@ -39,9 +40,9 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
-    private static Map<String, ActionCommandFactory> createCommandFactories(Class clazz) {
+    private Map<String, ActionCommandFactory> createCommandFactories() {
         Map<String, ActionCommandFactory> result = new HashMap<String, ActionCommandFactory>();
-        for (Method method : clazz.getDeclaredMethods()) {
+        for (Method method : this.getClass().getDeclaredMethods()) {
             CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
             if (cordovaMethod != null) {
                 Class[] paramTypes = method.getParameterTypes();
@@ -63,6 +64,26 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return result;
     }
 
+    private Object[] getMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
+        int len = args.length();
+        Object[] methodArgs = new Object[len + 1];
+        for (int i = 0; i < len; ++i) {
+            Object argValue = args.opt(i);
+            if (JSONObject.NULL.equals(argValue)) {
+                argValue = null;
+            }
+            methodArgs[i] = argValue;
+        }
+        // CallbackContext is always the last one
+        methodArgs[len] = callbackContext;
+
+        return methodArgs;
+    }
+
+    private String getFullMethodName(Method method) {
+        return getClass().getSimpleName() + "#" + method.getName();
+    }
+
     private static class ActionCommandFactory {
         private final Method method;
         private final boolean async;
@@ -74,8 +95,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             this.ui = cordovaMethod.ui();
         }
 
-        public Runnable create(final CordovaPlugin plugin, JSONArray args, final CallbackContext callbackContext) throws JSONException {
-            final Object[] methodArgs = getMethodArgs(args, callbackContext);
+        public Runnable create(final ReflectiveCordovaPlugin plugin, final Object[] methodArgs, final CallbackContext callbackContext) throws JSONException {
             // always create a new command object
             // to avoid possible thread conflicts
             return new Runnable() {
@@ -84,34 +104,14 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                     try {
                         method.invoke(plugin, methodArgs);
                     } catch (InvocationTargetException e) {
-                        LOG.e(TAG, "Invocation exception at " + getFullMethodName(), e.getTargetException());
+                        LOG.e(TAG, "Invocation exception at " + plugin.getFullMethodName(method), e.getTargetException());
                         callbackContext.error(e.getTargetException().getMessage());
                     } catch (Exception e) {
-                        LOG.e(TAG, "Uncaught exception at " + getFullMethodName(), e);
+                        LOG.e(TAG, "Uncaught exception at " + plugin.getFullMethodName(method), e);
                         callbackContext.error(e.getMessage());
                     }
                 }
             };
-        }
-
-        private static Object[] getMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
-            int len = args.length();
-            Object[] methodArgs = new Object[len + 1];
-            for (int i = 0; i < len; ++i) {
-                Object argValue = args.opt(i);
-                if (JSONObject.NULL.equals(argValue)) {
-                    argValue = null;
-                }
-                methodArgs[i] = argValue;
-            }
-            // CallbackContext is always the last one
-            methodArgs[len] = callbackContext;
-
-            return methodArgs;
-        }
-
-        private String getFullMethodName() {
-            return this.plugin.getClass().getSimpleName() + "#" + this.method.getName();
         }
     }
 }
