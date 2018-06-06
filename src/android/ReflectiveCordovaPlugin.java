@@ -25,11 +25,10 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
 
         ActionCommandFactory factory = factories.get(action);
         if (factory != null) {
-            Object[] methodArgs = getMethodArgs(args, callbackContext);
-            Runnable command = factory.create(this, methodArgs, callbackContext);
-            if (factory.ui) {
+            Runnable command = factory.create(this, args, callbackContext);
+            if (factory.thread == CordovaMethodThread.UI) {
                 cordova.getActivity().runOnUiThread(command);
-            } else if (factory.async) {
+            } else if (factory.thread == CordovaMethodThread.WORKER) {
                 cordova.getThreadPool().execute(command);
             } else {
                 command.run();
@@ -45,39 +44,18 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         for (Method method : this.getClass().getDeclaredMethods()) {
             CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
             if (cordovaMethod != null) {
-                Class[] paramTypes = method.getParameterTypes();
-                if (!CallbackContext.class.equals(paramTypes[paramTypes.length - 1])) {
-                    LOG.e(TAG, "Method with @CordovaMethod must have CallbackContext as the last parameter");
-                } else {
-                    String methodAction = cordovaMethod.action();
-                    if (methodAction.isEmpty()) {
-                        methodAction = method.getName();
-                    }
-                    result.put(methodAction, new ActionCommandFactory(method, cordovaMethod));
-                    // suppress Java language access checks
-                    // to improve performance of future calls
-                    method.setAccessible(true);
+                String methodAction = cordovaMethod.action();
+                if (methodAction.isEmpty()) {
+                    methodAction = method.getName();
                 }
+                result.put(methodAction, new ActionCommandFactory(method, cordovaMethod.value()));
+                // suppress Java language access checks
+                // to improve performance of future calls
+                method.setAccessible(true);
             }
         }
 
         return result;
-    }
-
-    private Object[] getMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
-        int len = args.length();
-        Object[] methodArgs = new Object[len + 1];
-        for (int i = 0; i < len; ++i) {
-            Object argValue = args.opt(i);
-            if (JSONObject.NULL.equals(argValue)) {
-                argValue = null;
-            }
-            methodArgs[i] = argValue;
-        }
-        // CallbackContext is always the last one
-        methodArgs[len] = callbackContext;
-
-        return methodArgs;
     }
 
     private String getFullMethodName(Method method) {
@@ -86,16 +64,15 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
 
     private static class ActionCommandFactory {
         private final Method method;
-        private final boolean async;
-        private final boolean ui;
+        private final CordovaMethodThread thread;
 
-        public ActionCommandFactory(Method method, CordovaMethod cordovaMethod) {
+        public ActionCommandFactory(Method method, CordovaMethodThread thread) {
             this.method = method;
-            this.async = cordovaMethod.async();
-            this.ui = cordovaMethod.ui();
+            this.thread = thread;
         }
 
-        public Runnable create(final ReflectiveCordovaPlugin plugin, final Object[] methodArgs, final CallbackContext callbackContext) throws JSONException {
+        public Runnable create(final ReflectiveCordovaPlugin plugin, JSONArray args, final CallbackContext callbackContext) throws JSONException {
+            final Object[] methodArgs = getMethodArgs(args, callbackContext);
             // always create a new command object
             // to avoid possible thread conflicts
             return new Runnable() {
@@ -113,5 +90,21 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                 }
             };
         }
+    }
+
+    private static Object[] getMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
+        int len = args.length();
+        Object[] methodArgs = new Object[len + 1];
+        for (int i = 0; i < len; ++i) {
+            Object argValue = args.opt(i);
+            if (JSONObject.NULL.equals(argValue)) {
+                argValue = null;
+            }
+            methodArgs[i] = argValue;
+        }
+        // CallbackContext is always the last one
+        methodArgs[len] = callbackContext;
+
+        return methodArgs;
     }
 }

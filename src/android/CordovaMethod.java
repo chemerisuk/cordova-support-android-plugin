@@ -8,7 +8,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface CordovaMethod {
+    public CordovaMethodThread value() default CordovaMethodThread.MAIN;
     public String action() default "";
-    public boolean async() default false;
-    public boolean ui() default false;
 }
