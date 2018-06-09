@@ -23,36 +23,18 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
     }
 
     @Override
-    public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
+    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if (pairs == null) {
             pairs = createCommandFactories();
         }
 
         SimpleImmutableEntry<Method, ExecutionThread> pair = pairs.get(action);
         if (pair != null) {
-            final Object[] methodArgs = getMethodArgs(args, callbackContext);
-            // always create a new command object
-            // to avoid possible thread conflicts
-            final Runnable command = new Runnable() {
-                @Override
-                public void run() {
-                    Method method = pair.getKey();
-                    try {
-                        method.invoke(ReflectiveCordovaPlugin.this, methodArgs);
-                    } catch (Throwable e) {
-                        if (e instanceof InvocationTargetException) {
-                            e = ((InvocationTargetException)e).getTargetException();
-                        }
-                        LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + method.getName(), e);
-                        callbackContext.error(e.getMessage());
-                    }
-                }
-            };
-
-            ExecutionThread thread = pair.getValue();
-            if (thread == ExecutionThread.UI) {
+            Runnable command = createCommand(pair.getKey(), args, callbackContext);
+            ExecutionThread executionThread = pair.getValue();
+            if (executionThread == ExecutionThread.UI) {
                 cordova.getActivity().runOnUiThread(command);
-            } else if (thread == ExecutionThread.WORKER) {
+            } else if (executionThread == ExecutionThread.WORKER) {
                 cordova.getThreadPool().execute(command);
             } else {
                 command.run();
@@ -64,9 +46,28 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
+    private Runnable createCommand(final Method method, JSONArray args, final CallbackContext callbackContext) {
+        final Object[] methodArgs = getMethodArgs(args, callbackContext);
+        // always create a new command to avoid concurrancy conflicts
+        return new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    method.invoke(ReflectiveCordovaPlugin.this, methodArgs);
+                } catch (Throwable e) {
+                    if (e instanceof InvocationTargetException) {
+                        e = ((InvocationTargetException)e).getTargetException();
+                    }
+                    LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + method.getName(), e);
+                    callbackContext.error(e.getMessage());
+                }
+            }
+        };
+    }
+
     private Map<String, SimpleImmutableEntry<Method, ExecutionThread>> createCommandFactories() {
         Map<String, SimpleImmutableEntry<Method, ExecutionThread>> result = new HashMap<String, SimpleImmutableEntry<Method, ExecutionThread>>();
-        for (Method method : this.getClass().getDeclaredMethods()) {
+        for (Method method : getClass().getDeclaredMethods()) {
             CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
             if (cordovaMethod != null) {
                 String methodAction = cordovaMethod.action();
