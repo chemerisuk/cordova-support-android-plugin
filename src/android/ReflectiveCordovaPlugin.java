@@ -9,13 +9,14 @@ import org.json.JSONException;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map;
 import java.util.HashMap;
 
 
 public class ReflectiveCordovaPlugin extends CordovaPlugin {
     private static String TAG = "ReflectiveCordovaPlugin";
-    private Map<String, ActionCommandFactory> factories;
+    private Map<String, SimpleImmutableEntry<Method, ExecutionThread>> pairs;
 
     public enum ExecutionThread {
         MAIN, UI, WORKER
@@ -23,33 +24,35 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
 
     @Override
     public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
-        if (factories == null) {
-            factories = createCommandFactories();
+        if (pairs == null) {
+            pairs = createCommandFactories();
         }
 
-        ActionCommandFactory factory = factories.get(action);
-        if (factory != null) {
+        SimpleImmutableEntry<Method, ExecutionThread> pair = pairs.get(action);
+        if (pair != null) {
             final Object[] methodArgs = getMethodArgs(args, callbackContext);
             // always create a new command object
             // to avoid possible thread conflicts
             final Runnable command = new Runnable() {
                 @Override
                 public void run() {
+                    Method method = pair.getKey();
                     try {
-                        factory.method.invoke(ReflectiveCordovaPlugin.this, methodArgs);
-                    } catch (Exception e) {
+                        method.invoke(ReflectiveCordovaPlugin.this, methodArgs);
+                    } catch (Throwable e) {
                         if (e instanceof InvocationTargetException) {
                             e = ((InvocationTargetException)e).getTargetException();
                         }
-                        LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + factory.method.getName(), e);
+                        LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + method.getName(), e);
                         callbackContext.error(e.getMessage());
                     }
                 }
             };
 
-            if (factory.thread == ExecutionThread.UI) {
+            ExecutionThread thread = pair.getValue();
+            if (thread == ExecutionThread.UI) {
                 cordova.getActivity().runOnUiThread(command);
-            } else if (factory.thread == ExecutionThread.WORKER) {
+            } else if (thread == ExecutionThread.WORKER) {
                 cordova.getThreadPool().execute(command);
             } else {
                 command.run();
@@ -61,8 +64,8 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
-    private Map<String, ActionCommandFactory> createCommandFactories() {
-        Map<String, ActionCommandFactory> result = new HashMap<String, ActionCommandFactory>();
+    private Map<String, SimpleImmutableEntry<Method, ExecutionThread>> createCommandFactories() {
+        Map<String, SimpleImmutableEntry<Method, ExecutionThread>> result = new HashMap<String, SimpleImmutableEntry<Method, ExecutionThread>>();
         for (Method method : this.getClass().getDeclaredMethods()) {
             CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
             if (cordovaMethod != null) {
@@ -70,7 +73,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                 if (methodAction.isEmpty()) {
                     methodAction = method.getName();
                 }
-                result.put(methodAction, new ActionCommandFactory(method, cordovaMethod.value()));
+                result.put(methodAction, new SimpleImmutableEntry(method, cordovaMethod.value()));
                 // suppress Java language access checks
                 // to improve performance of future calls
                 method.setAccessible(true);
@@ -78,16 +81,6 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         }
 
         return result;
-    }
-
-    private static class ActionCommandFactory {
-        private final Method method;
-        private final ExecutionThread thread;
-
-        public ActionCommandFactory(Method method, ExecutionThread thread) {
-            this.method = method;
-            this.thread = thread;
-        }
     }
 
     private static Object[] getMethodArgs(JSONArray args, CallbackContext callbackContext) throws JSONException {
