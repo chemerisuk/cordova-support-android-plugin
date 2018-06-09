@@ -37,11 +37,11 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                 public void run() {
                     try {
                         factory.method.invoke(ReflectiveCordovaPlugin.this, methodArgs);
-                    } catch (InvocationTargetException e) {
-                        LOG.e(TAG, "Invocation exception at " + getFullMethodName(method), e.getTargetException());
-                        callbackContext.error(e.getTargetException().getMessage());
                     } catch (Exception e) {
-                        LOG.e(TAG, "Uncaught exception at " + getFullMethodName(method), e);
+                        if (e instanceof InvocationTargetException) {
+                            e = ((InvocationTargetException)e).getTargetException();
+                        }
+                        LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + factory.method.getName(), e);
                         callbackContext.error(e.getMessage());
                     }
                 }
@@ -78,10 +78,6 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         }
 
         return result;
-    }
-
-    private String getFullMethodName(Method method) {
-        return getClass().getSimpleName() + "#" + method.getName();
     }
 
     private static class ActionCommandFactory {
