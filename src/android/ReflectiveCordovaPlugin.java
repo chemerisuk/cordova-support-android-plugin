@@ -22,14 +22,31 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
     }
 
     @Override
-    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
+    public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
         if (factories == null) {
             factories = createCommandFactories();
         }
 
         ActionCommandFactory factory = factories.get(action);
         if (factory != null) {
-            Runnable command = factory.create(this, args, callbackContext);
+            final Object[] methodArgs = getMethodArgs(args, callbackContext);
+            // always create a new command object
+            // to avoid possible thread conflicts
+            final Runnable command = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        factory.method.invoke(ReflectiveCordovaPlugin.this, methodArgs);
+                    } catch (InvocationTargetException e) {
+                        LOG.e(TAG, "Invocation exception at " + getFullMethodName(method), e.getTargetException());
+                        callbackContext.error(e.getTargetException().getMessage());
+                    } catch (Exception e) {
+                        LOG.e(TAG, "Uncaught exception at " + getFullMethodName(method), e);
+                        callbackContext.error(e.getMessage());
+                    }
+                }
+            };
+
             if (factory.thread == ExecutionThread.UI) {
                 cordova.getActivity().runOnUiThread(command);
             } else if (factory.thread == ExecutionThread.WORKER) {
@@ -37,6 +54,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             } else {
                 command.run();
             }
+
             return true;
         }
 
@@ -73,26 +91,6 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         public ActionCommandFactory(Method method, ExecutionThread thread) {
             this.method = method;
             this.thread = thread;
-        }
-
-        public Runnable create(final ReflectiveCordovaPlugin plugin, JSONArray args, final CallbackContext callbackContext) throws JSONException {
-            final Object[] methodArgs = getMethodArgs(args, callbackContext);
-            // always create a new command object
-            // to avoid possible thread conflicts
-            return new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        method.invoke(plugin, methodArgs);
-                    } catch (InvocationTargetException e) {
-                        LOG.e(TAG, "Invocation exception at " + plugin.getFullMethodName(method), e.getTargetException());
-                        callbackContext.error(e.getTargetException().getMessage());
-                    } catch (Exception e) {
-                        LOG.e(TAG, "Uncaught exception at " + plugin.getFullMethodName(method), e);
-                        callbackContext.error(e.getMessage());
-                    }
-                }
-            };
         }
     }
 
