@@ -17,6 +17,10 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
     private static String TAG = "ReflectiveCordovaPlugin";
     private Map<String, ActionCommandFactory> factories;
 
+    public enum ExecutionThread {
+        MAIN, UI, WORKER
+    }
+
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if (factories == null) {
@@ -26,9 +30,9 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         ActionCommandFactory factory = factories.get(action);
         if (factory != null) {
             Runnable command = factory.create(this, args, callbackContext);
-            if (factory.thread == CordovaMethodThread.UI) {
+            if (factory.thread == ExecutionThread.UI) {
                 cordova.getActivity().runOnUiThread(command);
-            } else if (factory.thread == CordovaMethodThread.WORKER) {
+            } else if (factory.thread == ExecutionThread.WORKER) {
                 cordova.getThreadPool().execute(command);
             } else {
                 command.run();
@@ -64,9 +68,9 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
 
     private static class ActionCommandFactory {
         private final Method method;
-        private final CordovaMethodThread thread;
+        private final ExecutionThread thread;
 
-        public ActionCommandFactory(Method method, CordovaMethodThread thread) {
+        public ActionCommandFactory(Method method, ExecutionThread thread) {
             this.method = method;
             this.thread = thread;
         }
