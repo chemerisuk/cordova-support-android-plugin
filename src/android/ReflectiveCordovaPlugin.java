@@ -30,12 +30,14 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
 
         SimpleImmutableEntry<Method, ExecutionThread> pair = pairs.get(action);
         if (pair != null) {
-            Runnable command = createCommand(pair.getKey(), args, callbackContext);
+            Object[] methodArgs = getMethodArgs(args, callbackContext);
+            // always create a new command to avoid concurrency conflicts
+            Runnable command = createCommand(pair.getKey(), methodArgs, callbackContext);
             ExecutionThread executionThread = pair.getValue();
-            if (executionThread == ExecutionThread.UI) {
-                cordova.getActivity().runOnUiThread(command);
-            } else if (executionThread == ExecutionThread.WORKER) {
+            if (executionThread == ExecutionThread.WORKER) {
                 cordova.getThreadPool().execute(command);
+            } else if (executionThread == ExecutionThread.UI) {
+                cordova.getActivity().runOnUiThread(command);
             } else {
                 command.run();
             }
@@ -46,9 +48,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
-    private Runnable createCommand(final Method method, JSONArray args, final CallbackContext callbackContext) {
-        final Object[] methodArgs = getMethodArgs(args, callbackContext);
-        // always create a new command to avoid concurrancy conflicts
+    private Runnable createCommand(final Method method, final Object[] methodArgs, final CallbackContext callbackContext) {
         return new Runnable() {
             @Override
             public void run() {
