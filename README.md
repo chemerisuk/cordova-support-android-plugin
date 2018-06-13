@@ -13,7 +13,7 @@ If you obfuscate app with ProGuard then `proguard-rules.pro` usually contains ru
 -keep public class * extends org.apache.cordova.CordovaPlugin
 ```
 
-Because `ReflectiveCordovaPlugin` uses method names to invoke appropriate action you should keep any methods marked with `@CordovaMethod`:
+`ReflectiveCordovaPlugin` uses method names to match an appropriate action. Therefore you should keep names for methods with `@CordovaMethod` annotation:
 
 ```
 -keepclassmembers class ** {
