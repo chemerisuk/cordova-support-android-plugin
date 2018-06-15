@@ -1,6 +1,6 @@
 {
   "name": "cordova-support-android-plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "More convenient base CordovaPlugin class",
   "cordova": {
     "id": "cordova-support-android-plugin",
