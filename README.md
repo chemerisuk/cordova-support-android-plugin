@@ -19,6 +19,10 @@ If you obfuscate app with ProGuard then `proguard-rules.pro` usually contains ru
 -keepclassmembers class ** {
   @by.chemerisuk.cordova.support.CordovaMethod *;
 }
+-keep public enum by.chemerisuk.cordova.support.ReflectiveCordovaPlugin$** {
+    **[] $VALUES;
+    public *;
+}
 ```
 
 [npm-url]: https://www.npmjs.com/package/cordova-support-android-plugin
