@@ -58,7 +58,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                     if (e instanceof InvocationTargetException) {
                         e = ((InvocationTargetException)e).getTargetException();
                     }
-                    LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + method.getName(), e);
+                    LOG.e(TAG, "METHOD EXCEPTION: " + ReflectiveCordovaPlugin.this.getClass().getSimpleName(), e);
                     callbackContext.error(e.getMessage());
                 }
             }
