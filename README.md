@@ -1,4 +1,4 @@
-# cordova-support-android-plugin<br>[![NPM version][npm-version]][npm-url] [![NPM downloads][npm-downloads]][npm-url]
+# cordova-support-android-plugin<br>[![NPM version][npm-version]][npm-url] [![NPM downloads][npm-downloads]][npm-url] [![Twitter][twitter-follow]][twitter-url]
 The plugin introduces new base class for Android Cordova plugins called `ReflectiveCordovaPlugin` that extends `CordovaPlugin` and allows to reduce boilerplate code. Please read links below to understand new capabilities:
 * [Default implementation of `execute`](https://github.com/chemerisuk/cordova-support-android-plugin/wiki/Default-implementation-of-execute)
 * [Argument binding](https://github.com/chemerisuk/cordova-support-android-plugin/wiki/Argument-binding)
@@ -28,3 +28,5 @@ If you obfuscate app with ProGuard then `proguard-rules.pro` usually contains ru
 [npm-url]: https://www.npmjs.com/package/cordova-support-android-plugin
 [npm-version]: https://img.shields.io/npm/v/cordova-support-android-plugin.svg
 [npm-downloads]: https://img.shields.io/npm/dm/cordova-support-android-plugin.svg
+[twitter-url]: https://twitter.com/chemerisuk
+[twitter-follow]: https://img.shields.io/twitter/follow/chemerisuk.svg?style=social&label=Follow%20me
