@@ -48,7 +48,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
-    protected void handleUncaughtExceptions(final Throwable e, final Method method, final Object[] methodArgs, final CallbackContext callbackContext) {
+    protected void handleUncaughtExceptions(Throwable e, Method method, Object[] methodArgs, CallbackContext callbackContext) {
         LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + method.getName(), e);
         callbackContext.error(e.getMessage());
     }
