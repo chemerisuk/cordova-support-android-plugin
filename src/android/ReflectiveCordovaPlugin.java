@@ -48,6 +48,11 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         return false;
     }
 
+    protected void handleUncaughtExceptions(Throwable e, Method method, Object[] methodArgs, CallbackContext callbackContext) {
+        LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + method.getName(), e);
+        callbackContext.error(e.getMessage());
+    }
+
     private Runnable createCommand(final Method method, final Object[] methodArgs, final CallbackContext callbackContext) {
         return new Runnable() {
             @Override
@@ -58,8 +63,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                     if (e instanceof InvocationTargetException) {
                         e = ((InvocationTargetException)e).getTargetException();
                     }
-                    LOG.e(TAG, "Uncaught exception at " + getClass().getSimpleName() + "#" + method.getName(), e);
-                    callbackContext.error(e.getMessage());
+                    handleUncaughtExceptions(e, method, methodArgs, callbackContext);
                 }
             }
         };
