@@ -15,12 +15,8 @@ import java.util.Map;
 
 
 public class ReflectiveCordovaPlugin extends CordovaPlugin {
-    private static String TAG = "ReflectiveCordovaPlugin";
+    private static final String TAG = "ReflectiveCordovaPlugin";
     private Map<String, Pair<Method, ExecutionThread>> pairs;
-
-    public enum ExecutionThread {
-        MAIN, UI, WORKER
-    }
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
@@ -70,7 +66,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
     }
 
     private Map<String, Pair<Method, ExecutionThread>> createCommandFactories() {
-        Map<String, Pair<Method, ExecutionThread>> result = new HashMap<String, Pair<Method, ExecutionThread>>();
+        Map<String, Pair<Method, ExecutionThread>> result = new HashMap<>();
         for (Method method : getClass().getDeclaredMethods()) {
             CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
             if (cordovaMethod != null) {
@@ -78,7 +74,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
                 if (methodAction.isEmpty()) {
                     methodAction = method.getName();
                 }
-                result.put(methodAction, new Pair<Method, ExecutionThread>(method, cordovaMethod.value()));
+                result.put(methodAction, new Pair<>(method, cordovaMethod.value()));
                 // suppress Java language access checks
                 // to improve performance of future calls
                 method.setAccessible(true);
