@@ -11,7 +11,6 @@ import org.apache.cordova.LOG;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,21 +23,27 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         commandFactories = new HashMap<>();
         for (Method method : getClass().getDeclaredMethods()) {
             CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
-            if (cordovaMethod != null) {
-                String methodAction = cordovaMethod.action();
-                if (methodAction.isEmpty()) {
-                    methodAction = method.getName();
-                }
-                Class<?>[] paramTypes = method.getParameterTypes();
-                if (paramTypes.length != 2 || !CordovaArgs.class.equals(paramTypes[0]) ||
-                        !CallbackContext.class.equals((paramTypes[1]))) {
-                    throw new RuntimeException("Cordova method " +
-                            methodAction + " does not have valid parameters");
-                }
-                commandFactories.put(methodAction, new Pair<>(method, cordovaMethod.value()));
-                // suppress Java language access checks to improve performance of future calls
-                method.setAccessible(true);
+            if (cordovaMethod == null) return;
+
+            String methodAction = cordovaMethod.action();
+            if (methodAction.isEmpty()) {
+                methodAction = method.getName();
             }
+            boolean paramTypesValid = false;
+            Class<?>[] paramTypes = method.getParameterTypes();
+            if (paramTypes.length == 1) {
+                paramTypesValid = CallbackContext.class.equals(paramTypes[0]);
+            } else if (paramTypes.length == 2) {
+                paramTypesValid = CordovaArgs.class.equals(paramTypes[0]) &&
+                        CallbackContext.class.equals(paramTypes[1]);
+            }
+            if (!paramTypesValid) {
+                throw new RuntimeException("Cordova method " +
+                        methodAction + " does not have valid parameters");
+            }
+            commandFactories.put(methodAction, new Pair<>(method, cordovaMethod.value()));
+            // suppress Java language access checks to improve performance of future calls
+            method.setAccessible(true);
         }
     }
 
@@ -56,10 +61,8 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             } else {
                 command.run();
             }
-
             return true;
         }
-
         return false;
     }
 
