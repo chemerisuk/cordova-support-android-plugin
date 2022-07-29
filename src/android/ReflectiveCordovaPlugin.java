@@ -23,7 +23,7 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
         commandFactories = new HashMap<>();
         for (Method method : getClass().getDeclaredMethods()) {
             CordovaMethod cordovaMethod = method.getAnnotation(CordovaMethod.class);
-            if (cordovaMethod == null) return;
+            if (cordovaMethod == null) continue;
 
             String methodAction = cordovaMethod.action();
             if (methodAction.isEmpty()) {
