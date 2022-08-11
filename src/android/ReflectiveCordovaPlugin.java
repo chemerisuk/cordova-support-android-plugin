@@ -71,7 +71,11 @@ public class ReflectiveCordovaPlugin extends CordovaPlugin {
             @Override
             public void run() {
                 try {
+                  //FIX: Prevent FireBaseMessagingPlugin methods that lacks arguments from failing
+                  if(CordovaArgs.class.isAssignableFrom(method.getParameterTypes()[0]))
                     method.invoke(ReflectiveCordovaPlugin.this, args, callbackContext);
+                  else
+                    method.invoke(ReflectiveCordovaPlugin.this, callbackContext);
                 } catch (Throwable e) {
                     if (e instanceof InvocationTargetException) {
                         e = ((InvocationTargetException)e).getTargetException();
