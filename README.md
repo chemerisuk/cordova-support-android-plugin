@@ -9,21 +9,19 @@
 [twitter-url]: https://twitter.com/chemerisuk
 [twitter-follow]: https://img.shields.io/twitter/follow/chemerisuk.svg?style=social&label=Follow%20me
 
+The plugin introduces new base class for Android Cordova plugins called `ReflectiveCordovaPlugin` that extends `CordovaPlugin` and allows to reduce boilerplate code.
+
 ## Index
 
 <!-- MarkdownTOC levels="2,3" autolink="true" -->
 
-- [Problem](#problem)
-  - [Default implementation of execute](#default-implementation-of-execute)
-  - [Asynchronous actions](#asynchronous-actions)
+- [Default implementation of execute](#default-implementation-of-execute)
+- [Asynchronous actions](#asynchronous-actions)
+- [ProGuard notes](#proguard-notes)
 
 <!-- /MarkdownTOC -->
 
-## Problem
-
-The plugin introduces new base class for Android Cordova plugins called `ReflectiveCordovaPlugin` that extends `CordovaPlugin` and allows to reduce boilerplate code.
-
-### Default implementation of execute
+## Default implementation of execute
 
 This is an example of typical cordova plugin implementation:
 
@@ -76,7 +74,7 @@ public class MyPlugin extends ReflectiveCordovaPlugin {
 }
 ```
 
-### Asynchronous actions
+## Asynchronous actions
 
 Cordova best practise is to invoke time-consuming logic in a separate thread:
 
@@ -123,5 +121,35 @@ public class MyPlugin extends ReflectiveCordovaPlugin {
 
 }
 ```
+
+## ProGuard notes
+
+__Only needed for version 1__.
+
+If you obfuscate app with ProGuard then `proguard-rules.pro` usually contains rules:
+
+```
+-keep class org.apache.cordova.* { *; }
+-keep class org.apache.cordova.engine.* { *; }
+-keep public class * extends org.apache.cordova.CordovaPlugin
+```
+
+`ReflectiveCordovaPlugin` uses method names to match an appropriate action. Therefore you should keep names for methods with `@CordovaMethod` annotation:
+
+```
+-keepclassmembers class ** {
+    @by.chemerisuk.cordova.support.CordovaMethod *;
+}
+
+keep public enum by.chemerisuk.cordova.support.ReflectiveCordovaPlugin$** {
+    **[] $VALUES;
+    public *;
+}
+```
+
+
+
+
+
 
 
